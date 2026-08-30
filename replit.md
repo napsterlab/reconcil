@@ -1,6 +1,6 @@
-# [Project name]
+# Reconcil
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Reconcil est une démo SaaS en français qui aide les cabinets comptables marocains à rapprocher leurs relevés bancaires et écritures comptables en quelques minutes.
 
 ## Run & Operate
 
@@ -22,23 +22,33 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/reconcil/src/App.tsx` — parcours cabinet, dossiers, import/aperçu, rapprochement et écrans secondaires
+- `artifacts/reconcil/src/index.css` — thème visuel Reconcil et responsive layout
+- `artifacts/api-server/src/routes/reconcil.ts` — API de démonstration, données seed et moteur de matching
+- `lib/api-spec/openapi.yaml` — contrat source des endpoints et schémas
+- `lib/db/src/schema/reconcil.ts` — schéma PostgreSQL métier
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Le parcours de démo démarre avec un dossier préchargé et laisse les fichiers réels remplacer les fichiers d’exemple.
+- Le matching est séquentiel : exact, tolérance de date, puis similarité de libellé ; les réglages sont envoyés par l’interface.
+- Les fichiers d’exemple sont statiques et téléchargeables afin de réduire la friction lors d’une démo live.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Connexion de démonstration, vue cabinet et suivi des exceptions
+- Gestion de dossiers clients et d’une équipe de collaborateurs
+- Upload CSV/PDF/XLSX avec aperçu CSV, rapprochement automatique et association manuelle
+- Historique des contrôles et écran d’abonnement statique
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+L’interface demandée est entièrement en français, sobre, professionnelle et orientée métier comptable.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Pour lancer un build Vite hors workflow, fournir `PORT` et `BASE_PATH` (ex. `PORT=4173 BASE_PATH=/`).
+- Après une modification d’OpenAPI, relancer `pnpm --filter @workspace/api-spec run codegen`.
 
 ## Pointers
 

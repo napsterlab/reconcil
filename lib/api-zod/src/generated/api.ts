@@ -21,7 +21,7 @@ export const HealthCheckResponse = zod.object({
  * @summary Sign in to the demo cabinet
  */
 export const LoginBody = zod.object({
-  "email": zod.email(),
+  "email": zod.string().email(),
   "password": zod.string()
 })
 
@@ -39,7 +39,7 @@ export const LoginResponse = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "plan": zod.string(),
-  "clientCount": zod.int()
+  "clientCount": zod.number().int()
 })
 })
 
@@ -61,7 +61,7 @@ export const GetMeResponse = zod.object({
   "name": zod.string(),
   "email": zod.string(),
   "plan": zod.string(),
-  "clientCount": zod.int()
+  "clientCount": zod.number().int()
 })
 })
 
@@ -70,9 +70,9 @@ export const GetMeResponse = zod.object({
  * @summary Get cabinet dashboard metrics
  */
 export const GetDashboardSummaryResponse = zod.object({
-  "totalClients": zod.int(),
-  "reconciledThisMonth": zod.int(),
-  "pendingExceptions": zod.int(),
+  "totalClients": zod.number().int(),
+  "reconciledThisMonth": zod.number().int(),
+  "pendingExceptions": zod.number().int(),
   "averageAutomationRate": zod.number(),
   "recentActivity": zod.array(zod.object({
   "id": zod.string(),
@@ -97,9 +97,9 @@ export const ListClientsResponseItem = zod.object({
   "lastPeriod": zod.string(),
   "lastRunAt": zod.coerce.date().optional(),
   "automationRate": zod.number(),
-  "matchedCount": zod.int(),
-  "exceptionCount": zod.int(),
-  "totalCount": zod.int(),
+  "matchedCount": zod.number().int(),
+  "exceptionCount": zod.number().int(),
+  "totalCount": zod.number().int(),
   "ownerInitials": zod.string()
 })
 export const ListClientsResponse = zod.array(ListClientsResponseItem)
@@ -124,9 +124,9 @@ export const CreateClientResponse = zod.object({
   "lastPeriod": zod.string(),
   "lastRunAt": zod.coerce.date().optional(),
   "automationRate": zod.number(),
-  "matchedCount": zod.int(),
-  "exceptionCount": zod.int(),
-  "totalCount": zod.int(),
+  "matchedCount": zod.number().int(),
+  "exceptionCount": zod.number().int(),
+  "totalCount": zod.number().int(),
   "ownerInitials": zod.string()
 })
 
@@ -147,9 +147,9 @@ export const GetClientResponse = zod.object({
   "lastPeriod": zod.string(),
   "lastRunAt": zod.coerce.date().optional(),
   "automationRate": zod.number(),
-  "matchedCount": zod.int(),
-  "exceptionCount": zod.int(),
-  "totalCount": zod.int(),
+  "matchedCount": zod.number().int(),
+  "exceptionCount": zod.number().int(),
+  "totalCount": zod.number().int(),
   "ownerInitials": zod.string()
 })
 
@@ -194,7 +194,7 @@ export const GetReconciliationResponse = zod.object({
   "confidence": zod.number(),
   "dateValidated": zod.string()
 })),
-  "toleranceDays": zod.int(),
+  "toleranceDays": zod.number().int(),
   "similarityThreshold": zod.number(),
   "runStatus": zod.enum(['ready', 'completed'])
 })
@@ -216,7 +216,7 @@ export const runReconciliationBodySimilarityThresholdMax = 1;
 
 
 export const RunReconciliationBody = zod.object({
-  "toleranceDays": zod.int().min(runReconciliationBodyToleranceDaysMin).max(runReconciliationBodyToleranceDaysMax),
+  "toleranceDays": zod.number().int().min(runReconciliationBodyToleranceDaysMin).max(runReconciliationBodyToleranceDaysMax),
   "similarityThreshold": zod.number().min(runReconciliationBodySimilarityThresholdMin).max(runReconciliationBodySimilarityThresholdMax)
 })
 
@@ -253,7 +253,7 @@ export const RunReconciliationResponse = zod.object({
   "confidence": zod.number(),
   "dateValidated": zod.string()
 })),
-  "toleranceDays": zod.int(),
+  "toleranceDays": zod.number().int(),
   "similarityThreshold": zod.number(),
   "runStatus": zod.enum(['ready', 'completed'])
 })
@@ -304,7 +304,7 @@ export const CreateManualMatchResponse = zod.object({
   "confidence": zod.number(),
   "dateValidated": zod.string()
 })),
-  "toleranceDays": zod.int(),
+  "toleranceDays": zod.number().int(),
   "similarityThreshold": zod.number(),
   "runStatus": zod.enum(['ready', 'completed'])
 })
@@ -322,8 +322,8 @@ export const ListReconciliationHistoryResponseItem = zod.object({
   "period": zod.string(),
   "completedAt": zod.coerce.date(),
   "automationRate": zod.number(),
-  "matchedCount": zod.int(),
-  "exceptionCount": zod.int(),
+  "matchedCount": zod.number().int(),
+  "exceptionCount": zod.number().int(),
   "status": zod.enum(['valide', 'brouillon'])
 })
 export const ListReconciliationHistoryResponse = zod.array(ListReconciliationHistoryResponseItem)
@@ -348,7 +348,7 @@ export const ListTeamResponse = zod.array(ListTeamResponseItem)
  */
 export const InviteTeamMemberBody = zod.object({
   "name": zod.string(),
-  "email": zod.email(),
+  "email": zod.string().email(),
   "role": zod.enum(['admin', 'collaborateur'])
 })
 

@@ -1,0 +1,1 @@
+- [Orval and Zod compatibility](reconcil-tooling.md) — pin generated validation output to numeric Zod 3 syntax when using this workspace’s Zod 3 catalog.
