@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Demo authentication
+  - name: dashboard
+    description: Cabinet overview
+  - name: clients
+    description: Client files and reconciliations
+  - name: team
+    description: Cabinet users
+  - name: subscription
+    description: Static plans
 paths:
   /healthz:
     get:
@@ -24,7 +34,220 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in to the demo cabinet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Demo session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Invalid credentials
+  /me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the current demo user
+      responses:
+        "200":
+          description: Current user and cabinet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get cabinet dashboard metrics
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /clients:
+    get:
+      operationId: listClients
+      tags: [clients]
+      summary: List client files for the cabinet
+      responses:
+        "200":
+          description: Client files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a client file
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientInput"
+      responses:
+        "201":
+          description: Created client
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+  /clients/{clientId}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client file
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Client file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+        "404":
+          description: Client not found
+  /clients/{clientId}/reconciliation:
+    get:
+      operationId: getReconciliation
+      tags: [clients]
+      summary: Get the current reconciliation workspace
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Reconciliation workspace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+  /clients/{clientId}/reconciliation/run:
+    post:
+      operationId: runReconciliation
+      tags: [clients]
+      summary: Run the three-pass reconciliation engine
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReconciliationSettings"
+      responses:
+        "200":
+          description: Reconciliation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+  /clients/{clientId}/reconciliation/manual:
+    post:
+      operationId: createManualMatch
+      tags: [clients]
+      summary: Validate a manual match
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualMatchInput"
+      responses:
+        "200":
+          description: Updated reconciliation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+  /clients/{clientId}/history:
+    get:
+      operationId: listReconciliationHistory
+      tags: [clients]
+      summary: List past reconciliations
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+      responses:
+        "200":
+          description: Reconciliation history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryItem"
+  /team:
+    get:
+      operationId: listTeam
+      tags: [team]
+      summary: List cabinet users
+      responses:
+        "200":
+          description: Cabinet users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamMember"
+    post:
+      operationId: inviteTeamMember
+      tags: [team]
+      summary: Invite a collaborator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberInput"
+      responses:
+        "201":
+          description: Invited team member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+  /subscription:
+    get:
+      operationId: getSubscription
+      tags: [subscription]
+      summary: Get static pricing plans
+      responses:
+        "200":
+          description: Pricing plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PricingPlan"
 components:
+  parameters:
+    ClientId:
+      name: clientId
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +256,269 @@ components:
           type: string
       required:
         - status
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+    Session:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/TeamMember"
+        cabinet:
+          $ref: "#/components/schemas/Cabinet"
+      required: [user, cabinet]
+    Cabinet:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        plan:
+          type: string
+        clientCount:
+          type: integer
+      required: [id, name, email, plan, clientCount]
+    TeamMember:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, collaborateur]
+        initials:
+          type: string
+        status:
+          type: string
+          enum: [actif, invitation]
+      required: [id, name, email, role, initials, status]
+    TeamMemberInput:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, collaborateur]
+      required: [name, email, role]
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+        companyName:
+          type: string
+        ifIce:
+          type: string
+        sector:
+          type: string
+        bank:
+          type: string
+        lastPeriod:
+          type: string
+        lastRunAt:
+          type: string
+          format: date-time
+        automationRate:
+          type: number
+        matchedCount:
+          type: integer
+        exceptionCount:
+          type: integer
+        totalCount:
+          type: integer
+        ownerInitials:
+          type: string
+      required: [id, companyName, ifIce, sector, bank, lastPeriod, automationRate, matchedCount, exceptionCount, totalCount, ownerInitials]
+    ClientInput:
+      type: object
+      properties:
+        companyName:
+          type: string
+        ifIce:
+          type: string
+        sector:
+          type: string
+        bank:
+          type: string
+      required: [companyName, ifIce, sector, bank]
+    DashboardSummary:
+      type: object
+      properties:
+        totalClients:
+          type: integer
+        reconciledThisMonth:
+          type: integer
+        pendingExceptions:
+          type: integer
+        averageAutomationRate:
+          type: number
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/Activity"
+      required: [totalClients, reconciledThisMonth, pendingExceptions, averageAutomationRate, recentActivity]
+    Activity:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [reconciliation, import, manual]
+        text:
+          type: string
+        clientName:
+          type: string
+        relativeTime:
+          type: string
+        initials:
+          type: string
+      required: [id, type, text, clientName, relativeTime, initials]
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+        amount:
+          type: number
+        label:
+          type: string
+        source:
+          type: string
+          enum: [bank, accounting]
+        status:
+          type: string
+          enum: [matched, unmatched]
+        matchType:
+          type: string
+          enum: [exact, tolerance_date, floue, manuel]
+        matchId:
+          type: string
+          nullable: true
+      required: [id, date, amount, label, source, status, matchType]
+    Match:
+      type: object
+      properties:
+        id:
+          type: string
+        bankTransactionId:
+          type: string
+        accountingEntryId:
+          type: string
+        type:
+          type: string
+          enum: [exact, tolerance_date, floue, manuel]
+        confidence:
+          type: number
+        dateValidated:
+          type: string
+      required: [id, bankTransactionId, accountingEntryId, type, confidence, dateValidated]
+    Reconciliation:
+      type: object
+      properties:
+        clientId:
+          type: string
+        period:
+          type: string
+        bankFile:
+          type: string
+        accountingFile:
+          type: string
+        bankTransactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        accountingEntries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/Match"
+        toleranceDays:
+          type: integer
+        similarityThreshold:
+          type: number
+        runStatus:
+          type: string
+          enum: [ready, completed]
+      required: [clientId, period, bankFile, accountingFile, bankTransactions, accountingEntries, matches, toleranceDays, similarityThreshold, runStatus]
+    ReconciliationSettings:
+      type: object
+      properties:
+        toleranceDays:
+          type: integer
+          minimum: 0
+          maximum: 10
+        similarityThreshold:
+          type: number
+          minimum: 0
+          maximum: 1
+      required: [toleranceDays, similarityThreshold]
+    ManualMatchInput:
+      type: object
+      properties:
+        bankTransactionId:
+          type: string
+        accountingEntryId:
+          type: string
+      required: [bankTransactionId, accountingEntryId]
+    HistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        period:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        automationRate:
+          type: number
+        matchedCount:
+          type: integer
+        exceptionCount:
+          type: integer
+        status:
+          type: string
+          enum: [valide, brouillon]
+      required: [id, period, completedAt, automationRate, matchedCount, exceptionCount, status]
+    PricingPlan:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: string
+        description:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        highlighted:
+          type: boolean
+      required: [id, name, price, description, features, highlighted]
 

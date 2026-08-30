@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface Cabinet {
+  id: string;
+  name: string;
+  email: string;
+  plan: string;
+  clientCount: number;
 }

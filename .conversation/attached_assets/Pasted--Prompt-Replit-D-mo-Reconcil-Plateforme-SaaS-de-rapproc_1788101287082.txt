@@ -1,0 +1,116 @@
+# Prompt Replit — Démo Reconcil (Plateforme SaaS de rapprochement bancaire)
+
+## Contexte produit
+
+Construis une **démo fonctionnelle** (pas un simple mockup statique) de **Reconcil**, une plateforme SaaS marocaine destinée aux cabinets comptables et PME, qui automatise le rapprochement entre les relevés bancaires et les écritures comptables.
+
+Positionnement clé à respecter dans le ton et l'UX : Reconcil n'est **pas** une suite comptable complète à apprendre, mais un module léger qui s'ajoute en quelques minutes à ce que le cabinet utilise déjà (Excel, Sage, EBP...), sans migration ni formation.
+
+Le public de cette démo : des cabinets comptables pilotes marocains (1 à 10 collaborateurs, portefeuille de 20 à 150 dossiers clients) et potentiellement des investisseurs. La démo doit donc être **crédible, rapide à prendre en main, et démontrer visuellement la valeur** (gain de temps, réduction d'erreurs) en moins de 5 minutes d'utilisation.
+
+## Stack technique imposée
+
+- **Frontend** : Next.js (React), TypeScript
+- **Backend** : API Routes Next.js (pas besoin de service séparé pour la démo)
+- **Base de données** : PostgreSQL — utilise Supabase si disponible sur Replit, sinon une base Postgres locale/Replit DB avec un schéma équivalent
+- **Authentification** : simple (email/mot de passe ou magic link), avec gestion de rôles (administrateur cabinet / collaborateur)
+- **Stockage fichiers** : stockage objet compatible S3 ou système de fichiers local pour la démo
+- **Parsing fichiers** :
+  - PDF → extraction de texte/tableaux (ex. équivalent JS de pdfplumber, ou une librairie Node de parsing PDF)
+  - CSV/Excel → parsing tabulaire (ex. papaparse pour CSV, xlsx/SheetJS pour Excel)
+- **Correspondance floue de texte** : implémente un algorithme de similarité de chaînes (distance de Levenshtein ou équivalent fuzzy-matching) — pas besoin d'une librairie Python, une implémentation JS/TS suffit
+- **Design** : interface professionnelle, sobre, orientée métier comptable (pas de style "startup flashy") — palette neutre avec un accent couleur, typographie claire, tableaux denses mais lisibles. Support du français comme langue principale de l'interface.
+
+## Modèle de données (à implémenter)
+
+| Table | Champs principaux |
+|---|---|
+| `cabinets` | id, nom, email, plan_tarifaire, date_creation |
+| `utilisateurs` | id, cabinet_id, nom, email, role (admin/collaborateur) |
+| `dossiers_clients` | id, cabinet_id, raison_sociale, if_ice |
+| `imports_bancaires` | id, dossier_id, fichier_source, periode, date_import |
+| `imports_comptables` | id, dossier_id, fichier_source, periode, date_import |
+| `transactions_bancaires` | id, import_id, date, montant, libelle, statut_matching |
+| `ecritures_comptables` | id, import_id, date, montant, libelle, statut_matching |
+| `rapprochements` | id, transaction_id, ecriture_id, type_match (exact/tolerance_date/floue/manuel), date_validation |
+
+Isole strictement les données par `cabinet_id` dans toutes les requêtes (chaque cabinet ne doit jamais voir les données d'un autre).
+
+## Algorithme de rapprochement (cœur de la démo — à implémenter fidèlement)
+
+Implémente un moteur de rapprochement en **trois passes séquentielles**, chaque passe traitant uniquement les éléments non résolus par la précédente :
+
+1. **Passe 1 — Correspondance exacte** : montant identique ET date identique → `type_match = "exact"`
+2. **Passe 2 — Tolérance de date** : montant identique ET date à ±2 jours (seuil configurable) → `type_match = "tolerance_date"`
+3. **Passe 3 — Correspondance floue** : montant identique ET similarité textuelle des libellés au-dessus d'un seuil configurable (ex. 0.75) → `type_match = "floue"`
+
+Les éléments restants non matchés à l'issue des 3 passes doivent apparaître comme "écarts à traiter manuellement".
+
+Le seuil de similarité textuelle et la tolérance de date doivent être des **paramètres ajustables** (au niveau du dossier client ou globalement pour la démo).
+
+## Fonctionnalités à couvrir dans la démo
+
+### Authentification & structure de compte
+- Connexion (email/mot de passe suffit pour la démo, pas besoin de vraie vérification email)
+- Un compte cabinet peut avoir plusieurs utilisateurs (admin + collaborateurs)
+- Gestion basique des collaborateurs (inviter, assigner des dossiers) — même en version simplifiée
+
+### Gestion des dossiers clients
+- Créer/lister/sélectionner un dossier client (raison sociale, IF/ICE)
+- Naviguer entre plusieurs dossiers au sein d'un même cabinet
+
+### Import de données
+- Upload d'un relevé bancaire (PDF ou CSV)
+- Upload d'un export comptable (Excel/CSV)
+- Affichage d'un aperçu des données extraites avant lancement du rapprochement (pour rassurer l'utilisateur sur la qualité du parsing)
+
+### Rapprochement automatique
+- Bouton "Lancer le rapprochement"
+- Exécution des 3 passes de l'algorithme
+- Affichage du **taux de matching automatique obtenu** (mettre en avant si ≥ 70%, objectif cible du CDC)
+
+### Tableau de résultats
+- Vue claire en deux zones : lignes matchées automatiquement (code couleur vert, avec le type de match) vs écarts à traiter (rouge/orange)
+- Pour chaque écart : possibilité de matcher manuellement en un clic (sélectionner une transaction bancaire + une écriture comptable et les associer)
+- Compteurs synthétiques en haut de page (nb. lignes totales, nb. matchées, nb. écarts, % automatisation)
+
+### Historique
+- Liste des rapprochements passés par dossier client et par période, avec possibilité de les rouvrir en lecture seule
+
+### Page abonnement (statique pour la démo)
+- Affichage des 3 plans tarifaires (Découverte gratuit, Standard 30-50 MAD/dossier/mois, Cabinet volume dégressif) — pas besoin de vraie facturation fonctionnelle, juste l'écran
+
+## Données de démonstration à générer
+
+Pré-charge la base avec :
+- 1 cabinet de démo avec 2-3 utilisateurs
+- 3-4 dossiers clients fictifs (noms d'entreprises marocaines plausibles)
+- Pour au moins un dossier : un jeu de données réaliste de relevé bancaire et export comptable (30-50 lignes) construit pour illustrer les 3 types de match ET quelques écarts volontaires, afin que la démonstration du rapprochement soit visuellement convaincante dès la première utilisation
+- Génère aussi 2-3 fichiers CSV/Excel d'exemple téléchargeables depuis l'interface, pour que l'utilisateur puisse tester l'import lui-même sans préparer ses propres fichiers
+
+## Contraintes de conception importantes
+
+- **Zéro friction perçue** : le parcours complet (import → rapprochement → résultats) doit être exécutable en moins de 5 minutes sans documentation.
+- **Ne pas construire de suite comptable complète** : pas de facturation, pas de déclarations fiscales, pas de module de trésorerie — reste strictement scopé au rapprochement bancaire.
+- **Pas de connexion bancaire réelle (Open Banking)** — tout passe par upload manuel de fichiers, conformément au MVP défini dans le CDC.
+- **Support des formats bancaires marocains courants** : prévois que les relevés PDF puissent avoir des mises en page variables (Attijariwafa, BOA, CIH, BMCI, Crédit du Maroc...) ; le parsing PDF doit être raisonnablement tolérant, pas nécessairement universel pour cette démo.
+- Interface entièrement en **français**.
+- Design responsive mais priorité au desktop (usage professionnel en cabinet).
+
+## Hors périmètre explicite pour cette démo
+
+- Open Banking / connexion bancaire directe
+- Génération de déclarations fiscales/sociales
+- Application mobile
+- Vraie passerelle de paiement (CMI ou autre)
+- Notifications WhatsApp/SMS
+
+## Livrable attendu
+
+Une application Next.js déployable sur Replit, avec :
+1. Un flux de connexion vers un compte cabinet de démo pré-rempli
+2. Un parcours complet et fonctionnel : sélection de dossier → import → rapprochement automatique → traitement manuel des écarts → validation
+3. Un algorithme de rapprochement réellement exécuté (pas simulé/hardcodé) sur les données importées
+4. Une interface soignée, professionnelle et en français, qui donne immédiatement confiance à un cabinet comptable marocain non digitalisé
+
+Priorise la robustesse du parcours de démonstration principal plutôt que la couverture exhaustive de tous les cas d'utilisation du CDC complet — l'objectif est de convaincre un cabinet pilote en une démo live, pas de livrer le produit final.

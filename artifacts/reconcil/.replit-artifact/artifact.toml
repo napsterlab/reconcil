@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Reconcil — Rapprochement bancaire"
+description = "Une application web SaaS en français pour les cabinets comptables marocains : importer des relevés, rapprocher les écritures automatiquement et traiter les écarts."
+version = "1.0.0"
+id = "artifacts/reconcil"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18300
+
+[services.development]
+run = "pnpm --filter @workspace/reconcil run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/reconcil", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/reconcil/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18300"
+BASE_PATH = "/"
