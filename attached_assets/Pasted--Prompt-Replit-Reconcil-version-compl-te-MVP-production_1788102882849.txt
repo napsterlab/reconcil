@@ -1,0 +1,119 @@
+# Prompt Replit — Reconcil, version complète MVP (production)
+
+## Contexte produit
+
+Construis la **version complète et production-ready du MVP** de Reconcil, une plateforme SaaS marocaine de rapprochement bancaire automatisé pour cabinets comptables et PME. Ce n'est plus une démo : c'est l'application destinée à être utilisée par de vrais cabinets pilotes payants dès la Phase 4-5 du projet (voir feuille de route). Elle doit donc être robuste, sécurisée, multi-tenant, et prête à onboarder des clients réels sans supervision technique constante.
+
+Positionnement produit à respecter dans toutes les décisions d'implémentation : Reconcil est un **complément léger sans friction d'adoption**, pas une suite comptable à apprendre. Chaque écran doit rester simple, même en ajoutant les fonctionnalités de gestion de compte/abonnement.
+
+## Stack technique imposée
+
+- **Frontend** : Next.js (React), TypeScript
+- **Backend** : Next.js API Routes (ou API séparée si besoin de scalabilité, mais reste simple pour un porteur de projet solo)
+- **Base de données** : PostgreSQL via Supabase
+- **Authentification** : Supabase Auth — gestion complète des comptes, sessions, rôles
+- **Stockage fichiers** : Supabase Storage (ou équivalent S3-compatible)
+- **Parsing PDF** : extraction de texte/tableaux robuste, tolérante aux mises en page variables des principales banques marocaines (Attijariwafa Bank, Bank of Africa, CIH Bank, BMCI, Crédit du Maroc)
+- **Parsing Excel/CSV** : lecture et normalisation robuste (gestion des encodages, séparateurs, en-têtes variables)
+- **Correspondance floue** : algorithme de similarité de texte configurable (seuil ajustable par dossier client)
+- **Hébergement cible** : conçu pour être déployable sur Vercel (frontend) + Railway/Render (backend) si séparé — mais doit tourner et être testable entièrement sur Replit en environnement de développement
+- **Langue de l'interface** : français
+
+## Acteurs du système (à implémenter avec contrôle d'accès réel)
+
+| Acteur | Rôle |
+|---|---|
+| Administrateur cabinet | Compte principal ; crée/gère les dossiers clients, gère les accès des collaborateurs, gère l'abonnement |
+| Collaborateur cabinet | Accède uniquement aux dossiers clients qui lui sont assignés, effectue les rapprochements |
+| Administrateur plateforme | Rôle superadmin transverse : supervision de tous les cabinets, support, gestion des abonnements et de la facturation à l'échelle de la plateforme |
+
+Le contrôle d'accès doit être réellement appliqué au niveau applicatif (middleware/guards), et si possible renforcé par des policies de sécurité au niveau base de données (Row Level Security Supabase) pour garantir l'isolation stricte entre cabinets.
+
+## Modèle de données complet
+
+Implémente le schéma suivant avec les contraintes d'intégrité référentielle appropriées :
+
+- `cabinets` (id, nom, email, plan_tarifaire, date_creation)
+- `utilisateurs` (id, cabinet_id, nom, email, role)
+- `dossiers_clients` (id, cabinet_id, raison_sociale, if_ice)
+- `imports_bancaires` (id, dossier_id, fichier_source, periode, date_import)
+- `imports_comptables` (id, dossier_id, fichier_source, periode, date_import)
+- `transactions_bancaires` (id, import_id, date, montant, libelle, statut_matching)
+- `ecritures_comptables` (id, import_id, date, montant, libelle, statut_matching)
+- `rapprochements` (id, transaction_id, ecriture_id, type_match, date_validation)
+
+Ajoute également les tables nécessaires à la gestion SaaS complète, non détaillées dans le schéma simplifié du CDC mais indispensables en production :
+- `abonnements` (cabinet_id, plan, statut, date_debut, date_renouvellement, nb_dossiers_actifs_factures)
+- `journaux_acces` (utilisateur_id, dossier_id, action, timestamp) — pour l'audit des accès aux dossiers sensibles
+- `invitations_collaborateurs` (cabinet_id, email, role, statut, token, date_expiration)
+
+## Tous les cas d'utilisation à couvrir (UC-01 à UC-09)
+
+1. **UC-01 — Créer un compte cabinet** : inscription complète, validation par e-mail réelle, création du premier utilisateur administrateur
+2. **UC-02 — Créer un dossier client** : formulaire avec raison sociale, IF/ICE, validation des champs
+3. **UC-03 — Importer un relevé bancaire** : upload PDF/CSV avec gestion d'erreurs claire si le parsing échoue partiellement
+4. **UC-04 — Importer un export comptable** : upload Excel/CSV avec les mêmes garanties
+5. **UC-05 — Lancer le rapprochement automatique** : exécution de l'algorithme 3 passes (exact → tolérance de date ±2 jours configurable → similarité floue avec seuil configurable), avec calcul et affichage du taux de matching
+6. **UC-06 — Valider ou corriger manuellement les écarts** : interface de matching manuel en un clic, avec possibilité de délier un match automatique erroné
+7. **UC-07 — Consulter l'historique des rapprochements** : par dossier client et par période, en lecture seule, avec export possible du résultat (PDF ou Excel)
+8. **UC-08 — Gérer les collaborateurs** : invitation par e-mail (avec token d'invitation réel), assignation de dossiers clients spécifiques, révocation d'accès
+9. **UC-09 — Gérer l'abonnement et la facturation** : visualisation du plan actuel, nombre de dossiers actifs (facturables), historique de facturation simulé (pas besoin d'une vraie passerelle de paiement CMI à ce stade, mais l'écran et la logique de calcul doivent être réels)
+
+## Structure tarifaire à implémenter (logique réelle, pas juste affichage)
+
+| Plan | Tarif | Contenu |
+|---|---|---|
+| Découverte | Gratuit | Jusqu'à 3 dossiers clients actifs |
+| Standard | 30 à 50 MAD/mois/dossier actif | Rapprochement illimité, historique complet |
+| Cabinet (volume) | Tarif dégressif à partir de 20 dossiers | Multi-collaborateurs, tarif préférentiel |
+
+La facturation se calcule **par dossier client actif**, pas par cabinet. Implémente la logique de comptage des dossiers actifs et le calcul du montant théorique, même si le paiement réel n'est pas encore branché à une passerelle (CMI viendra plus tard, hors scope ici).
+
+## Sécurité et confidentialité (exigences non négociables)
+
+- HTTPS obligatoire, chiffrement des données au repos et en transit
+- Isolation stricte des données entre cabinets à tous les niveaux (applicatif + idéalement RLS base de données)
+- Suppression des fichiers uploadés possible à la demande de l'utilisateur (droit à l'effacement)
+- Journalisation des accès aux dossiers clients (table `journaux_acces`) à des fins d'audit
+- Conformité avec l'esprit de la loi marocaine 09-08 sur la protection des données personnelles : prévoir une page de politique de confidentialité claire et un mécanisme de consentement à l'inscription
+- Aucune manipulation de fonds : le produit reste un outil de traitement de données, jamais un intermédiaire financier
+
+## Environnements et déploiement
+
+Structure le projet pour supporter les trois environnements décrits dans le CDC :
+- **Développement** : base de données locale/instance Supabase de dev, données de test
+- **Staging** : environnement de démonstration pour cabinets pilotes avant mise en production
+- **Production** : sauvegardes automatiques, monitoring des erreurs de base
+
+Mets en place :
+- Un dépôt Git structuré et versionné
+- Un pipeline de déploiement automatisé du frontend à chaque mise à jour de la branche principale
+- Des tests automatisés a minima sur le moteur de rapprochement (module le plus critique) avant tout déploiement
+- Un mécanisme de sauvegarde régulière de la base de données (quotidienne au minimum, ou documentation claire de comment la configurer sur l'hébergeur cible)
+
+## Fonctionnalités hors périmètre pour cette version (roadmap future, ne pas développer)
+
+- Connexion bancaire directe via Open Banking
+- Module de prévision de trésorerie
+- Génération automatique de déclarations fiscales et sociales
+- Application mobile dédiée
+- Passerelle de paiement CMI réellement branchée
+- Notifications WhatsApp Business / SMS
+
+## Indicateurs à rendre visibles dans un tableau de bord (pour l'administrateur cabinet et l'administrateur plateforme)
+
+- Taux de matching automatique par dossier et global (cible ≥ 70%)
+- Nombre de dossiers actifs par cabinet
+- Nombre de cabinets actifs sur la plateforme (vue admin plateforme uniquement)
+- Historique des rapprochements par période
+
+## Exigences de qualité générale
+
+- Gestion d'erreurs explicite à chaque étape critique (échec de parsing, fichier corrompu, format non reconnu) avec messages clairs en français pour un utilisateur non technique
+- Validation des données à l'upload (formats acceptés, taille de fichier, période cohérente)
+- Interface entièrement responsive, mais optimisée d'abord pour un usage desktop professionnel
+- Documentation minimale mais claire dans le repo (README expliquant comment lancer le projet, variables d'environnement nécessaires, structure du projet)
+
+## Livrable attendu
+
+Une application Next.js complète, connectée à Supabase (auth + base de données + storage), couvrant l'intégralité des 9 cas d'utilisation du CDC, avec isolation multi-tenant réelle, gestion des rôles, logique d'abonnement fonctionnelle, et moteur de rapprochement conforme à l'algorithme 3 passes spécifié — prête à être testée par de vrais cabinets comptables pilotes en conditions réelles (Phase 4 de la feuille de route : pilote avec 2-3 cabinets).
