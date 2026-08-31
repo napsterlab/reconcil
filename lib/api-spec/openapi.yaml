@@ -11,7 +11,7 @@ tags:
   - name: health
     description: Health operations
   - name: auth
-    description: Demo authentication
+    description: Cabinet authentication and sessions
   - name: dashboard
     description: Cabinet overview
   - name: clients
@@ -19,7 +19,7 @@ tags:
   - name: team
     description: Cabinet users
   - name: subscription
-    description: Static plans
+    description: Pricing and current cabinet usage
 paths:
   /healthz:
     get:
@@ -54,6 +54,14 @@ paths:
                 $ref: "#/components/schemas/Session"
         "401":
           description: Invalid credentials
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current session
+      responses:
+        "204":
+          description: Session ended
   /me:
     get:
       operationId: getMe
@@ -179,6 +187,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Reconciliation"
+  /clients/{clientId}/reconciliation/matches/{matchId}:
+    delete:
+      operationId: deleteMatch
+      tags: [clients]
+      summary: Unlink an automatic or manual match
+      parameters:
+        - $ref: "#/components/parameters/ClientId"
+        - name: matchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated reconciliation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reconciliation"
+        "404":
+          description: Match not found
   /clients/{clientId}/history:
     get:
       operationId: listReconciliationHistory
@@ -230,16 +259,14 @@ paths:
     get:
       operationId: getSubscription
       tags: [subscription]
-      summary: Get static pricing plans
+      summary: Get pricing plans and current usage
       responses:
         "200":
           description: Pricing plans
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PricingPlan"
+                $ref: "#/components/schemas/Subscription"
 components:
   parameters:
     ClientId:
@@ -254,6 +281,9 @@ components:
       properties:
         status:
           type: string
+        persistence:
+          type: string
+          enum: [demo, supabase]
       required:
         - status
     LoginInput:
@@ -521,4 +551,22 @@ components:
         highlighted:
           type: boolean
       required: [id, name, price, description, features, highlighted]
+    Subscription:
+      type: object
+      properties:
+        current:
+          type: object
+          properties:
+            plan:
+              type: string
+            activeClientCount:
+              type: integer
+            estimatedMonthlyAmountMad:
+              type: number
+          required: [plan, activeClientCount, estimatedMonthlyAmountMad]
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/PricingPlan"
+      required: [current, plans]
 

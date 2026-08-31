@@ -13,7 +13,8 @@ import * as zod from 'zod';
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.string(),
+  "persistence": zod.enum(['demo', 'supabase']).optional()
 })
 
 
@@ -42,6 +43,12 @@ export const LoginResponse = zod.object({
   "clientCount": zod.number().int()
 })
 })
+
+
+/**
+ * @summary End the current session
+ */
+export const LogoutResponse = zod.void()
 
 
 /**
@@ -311,6 +318,53 @@ export const CreateManualMatchResponse = zod.object({
 
 
 /**
+ * @summary Unlink an automatic or manual match
+ */
+export const DeleteMatchParams = zod.object({
+  "clientId": zod.coerce.string(),
+  "matchId": zod.coerce.string()
+})
+
+export const DeleteMatchResponse = zod.object({
+  "clientId": zod.string(),
+  "period": zod.string(),
+  "bankFile": zod.string(),
+  "accountingFile": zod.string(),
+  "bankTransactions": zod.array(zod.object({
+  "id": zod.string(),
+  "date": zod.string(),
+  "amount": zod.number(),
+  "label": zod.string(),
+  "source": zod.enum(['bank', 'accounting']),
+  "status": zod.enum(['matched', 'unmatched']),
+  "matchType": zod.enum(['exact', 'tolerance_date', 'floue', 'manuel']),
+  "matchId": zod.string().nullish()
+})),
+  "accountingEntries": zod.array(zod.object({
+  "id": zod.string(),
+  "date": zod.string(),
+  "amount": zod.number(),
+  "label": zod.string(),
+  "source": zod.enum(['bank', 'accounting']),
+  "status": zod.enum(['matched', 'unmatched']),
+  "matchType": zod.enum(['exact', 'tolerance_date', 'floue', 'manuel']),
+  "matchId": zod.string().nullish()
+})),
+  "matches": zod.array(zod.object({
+  "id": zod.string(),
+  "bankTransactionId": zod.string(),
+  "accountingEntryId": zod.string(),
+  "type": zod.enum(['exact', 'tolerance_date', 'floue', 'manuel']),
+  "confidence": zod.number(),
+  "dateValidated": zod.string()
+})),
+  "toleranceDays": zod.number().int(),
+  "similarityThreshold": zod.number(),
+  "runStatus": zod.enum(['ready', 'completed'])
+})
+
+
+/**
  * @summary List past reconciliations
  */
 export const ListReconciliationHistoryParams = zod.object({
@@ -363,16 +417,22 @@ export const InviteTeamMemberResponse = zod.object({
 
 
 /**
- * @summary Get static pricing plans
+ * @summary Get pricing plans and current usage
  */
-export const GetSubscriptionResponseItem = zod.object({
+export const GetSubscriptionResponse = zod.object({
+  "current": zod.object({
+  "plan": zod.string(),
+  "activeClientCount": zod.number().int(),
+  "estimatedMonthlyAmountMad": zod.number()
+}),
+  "plans": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "price": zod.string(),
   "description": zod.string(),
   "features": zod.array(zod.string()),
   "highlighted": zod.boolean()
+}))
 })
-export const GetSubscriptionResponse = zod.array(GetSubscriptionResponseItem)
 
 

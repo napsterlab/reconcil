@@ -1,1 +1,2 @@
 - [Orval and Zod compatibility](reconcil-tooling.md) — pin generated validation output to numeric Zod 3 syntax when using this workspace’s Zod 3 catalog.
+- [Session-gated preview requests](reconcil-auth-preview.md) — wait for the session bootstrap before mounting authenticated queries in the proxied web preview.

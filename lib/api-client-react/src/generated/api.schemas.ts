@@ -5,8 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type HealthStatusPersistence = typeof HealthStatusPersistence[keyof typeof HealthStatusPersistence];
+
+
+export const HealthStatusPersistence = {
+  demo: 'demo',
+  supabase: 'supabase',
+} as const;
+
 export interface HealthStatus {
   status: string;
+  persistence?: HealthStatusPersistence;
 }
 
 export interface LoginInput {
@@ -234,5 +243,16 @@ export interface PricingPlan {
   description: string;
   features: string[];
   highlighted: boolean;
+}
+
+export type SubscriptionCurrent = {
+  plan: string;
+  activeClientCount: number;
+  estimatedMonthlyAmountMad: number;
+};
+
+export interface Subscription {
+  current: SubscriptionCurrent;
+  plans: PricingPlan[];
 }
 

@@ -27,10 +27,10 @@ import type {
   HistoryItem,
   LoginInput,
   ManualMatchInput,
-  PricingPlan,
   Reconciliation,
   ReconciliationSettings,
   Session,
+  Subscription,
   TeamMember,
   TeamMemberInput
 } from './api.schemas';
@@ -209,6 +209,77 @@ export const useLogin = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getLoginMutationOptions(options));
+    }
+
+export const getLogoutUrl = () => {
+
+
+
+
+  return `/api/auth/logout`
+}
+
+/**
+ * @summary End the current session
+ */
+export const logout = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getLogoutUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLogoutMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext> => {
+
+const mutationKey = ['logout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logout>>, void> = () => {
+
+
+          return  logout(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutMutationResult = NonNullable<Awaited<ReturnType<typeof logout>>>
+
+    export type LogoutMutationError = ErrorType<unknown>
+
+    /**
+ * @summary End the current session
+ */
+export const useLogout = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logout>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logout>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutMutationOptions(options));
     }
 
 export const getGetMeUrl = () => {
@@ -811,6 +882,79 @@ export const useCreateManualMatch = <TError = ErrorType<unknown>,
       return useMutation(getCreateManualMatchMutationOptions(options));
     }
 
+export const getDeleteMatchUrl = (clientId: string,
+    matchId: string,) => {
+
+
+
+
+  return `/api/clients/${clientId}/reconciliation/matches/${matchId}`
+}
+
+/**
+ * @summary Unlink an automatic or manual match
+ */
+export const deleteMatch = async (clientId: string,
+    matchId: string, options?: Parameters<typeof customFetch>[1]): Promise<Reconciliation> => {
+
+  return customFetch<Reconciliation>(getDeleteMatchUrl(clientId,matchId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteMatchMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMatch>>, TError,{clientId: string;matchId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteMatch>>, TError,{clientId: string;matchId: string}, TContext> => {
+
+const mutationKey = ['deleteMatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteMatch>>, {clientId: string;matchId: string}> = (props) => {
+          const {clientId,matchId} = props ?? {};
+
+          return  deleteMatch(clientId,matchId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteMatchMutationResult = NonNullable<Awaited<ReturnType<typeof deleteMatch>>>
+
+    export type DeleteMatchMutationError = ErrorType<void>
+
+    /**
+ * @summary Unlink an automatic or manual match
+ */
+export const useDeleteMatch = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteMatch>>, TError,{clientId: string;matchId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteMatch>>,
+        TError,
+        {clientId: string;matchId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteMatchMutationOptions(options));
+    }
+
 export const getListReconciliationHistoryUrl = (clientId: string,) => {
 
 
@@ -1045,11 +1189,11 @@ export const getGetSubscriptionUrl = () => {
 }
 
 /**
- * @summary Get static pricing plans
+ * @summary Get pricing plans and current usage
  */
-export const getSubscription = async ( options?: Parameters<typeof customFetch>[1]): Promise<PricingPlan[]> => {
+export const getSubscription = async ( options?: Parameters<typeof customFetch>[1]): Promise<Subscription> => {
 
-  return customFetch<PricingPlan[]>(getGetSubscriptionUrl(),
+  return customFetch<Subscription>(getGetSubscriptionUrl(),
   {
     ...options,
     method: 'GET'
@@ -1092,7 +1236,7 @@ export type GetSubscriptionQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get static pricing plans
+ * @summary Get pricing plans and current usage
  */
 
 export function useGetSubscription<TData = Awaited<ReturnType<typeof getSubscription>>, TError = ErrorType<unknown>>(

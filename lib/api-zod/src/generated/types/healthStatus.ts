@@ -5,7 +5,9 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { HealthStatusPersistence } from './healthStatusPersistence';
 
 export interface HealthStatus {
   status: string;
+  persistence?: HealthStatusPersistence;
 }

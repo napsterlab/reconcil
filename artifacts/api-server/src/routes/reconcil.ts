@@ -11,6 +11,7 @@ import {
   LoginBody,
   InviteTeamMemberBody,
 } from "@workspace/api-zod";
+import { clearSessionCookie, requireRole, requireSession, setSessionCookie } from "../lib/auth";
 
 type MatchType = "exact" | "tolerance_date" | "floue" | "manuel";
 type Source = "bank" | "accounting";
@@ -238,6 +239,17 @@ function sessionFor(email: string) {
   return { user, cabinet: { ...cabinet, clientCount: clients.length } };
 }
 
+function canAccessClient(req: { reconcilSession?: { role: string; userId: string } }, client: Client) {
+  if (req.reconcilSession?.role !== "collaborateur") return true;
+  const member = team.find((item) => item.id === req.reconcilSession?.userId);
+  return member?.initials === client.ownerInitials;
+}
+
+function getAccessibleClient(req: { reconcilSession?: { role: string; userId: string } }, clientId: string) {
+  const client = clients.find((item) => item.id === clientId);
+  return client && canAccessClient(req, client) ? client : undefined;
+}
+
 const router: IRouter = Router();
 
 router.post("/auth/login", (req, res) => {
@@ -245,10 +257,35 @@ router.post("/auth/login", (req, res) => {
   if (!input.email || !input.password) {
     return res.status(401).json({ error: "Identifiants invalides" });
   }
-  return res.json(sessionFor(input.email));
+  const session = sessionFor(input.email);
+  setSessionCookie(res, {
+    userId: session.user.id,
+    email: session.user.email,
+    cabinetId: cabinet.id,
+    role: session.user.role,
+  });
+  return res.json(session);
 });
 
-router.get("/me", (_req, res) => res.json(sessionFor("nadia@atlas-conseil.ma")));
+router.post("/auth/logout", (_req, res) => {
+  clearSessionCookie(res);
+  return res.status(204).send();
+});
+
+router.get("/me", (req, res) => {
+  const session = req.reconcilSession;
+  if (session) {
+    const user = team.find((member) => member.id === session.userId) ?? team[0];
+    return res.json({ user, cabinet: { ...cabinet, clientCount: clients.length } });
+  }
+  const demo = sessionFor("nadia@atlas-conseil.ma");
+  if (process.env.RECONCIL_REQUIRE_AUTH === "true") return res.status(401).json({ error: "Authentification requise" });
+  setSessionCookie(res, { userId: demo.user.id, email: demo.user.email, cabinetId: cabinet.id, role: demo.user.role });
+  return res.json(demo);
+});
+
+router.use(requireSession);
+
 router.get("/dashboard/summary", (_req, res) => {
   const rates = clients.map((client) => client.automationRate);
   res.json({
@@ -264,8 +301,13 @@ router.get("/dashboard/summary", (_req, res) => {
   });
 });
 
-router.get("/clients", (_req, res) => res.json(clients.map((client) => clientView(client, reconciliations.get(client.id)!))));
-router.post("/clients", (req, res) => {
+router.get("/clients", (req, res) => {
+  const visibleClients = req.reconcilSession?.role === "collaborateur"
+    ? clients.filter((client) => client.ownerInitials === team.find((member) => member.id === req.reconcilSession?.userId)?.initials)
+    : clients;
+  return res.json(visibleClients.map((client) => clientView(client, reconciliations.get(client.id)!)));
+});
+router.post("/clients", requireRole("admin", "superadmin"), (req, res) => {
   const input = CreateClientBody.parse(req.body);
   const client: Client = { id: `client-${String(clients.length + 1).padStart(3, "0")}`, companyName: input.companyName, ifIce: input.ifIce, sector: input.sector, bank: input.bank, lastPeriod: "—", automationRate: 0, matchedCount: 0, exceptionCount: 0, totalCount: 0, ownerInitials: "NE" };
   clients.push(client);
@@ -275,13 +317,14 @@ router.post("/clients", (req, res) => {
 
 router.get("/clients/:clientId", (req, res) => {
   const { clientId } = GetClientParams.parse(req.params);
-  const client = clients.find((item) => item.id === clientId);
+  const client = getAccessibleClient(req, clientId);
   if (!client) return res.status(404).json({ error: "Dossier introuvable" });
   return res.json(clientView(client, reconciliations.get(client.id)!));
 });
 
 router.get("/clients/:clientId/reconciliation", (req, res) => {
   const { clientId } = GetReconciliationParams.parse(req.params);
+  if (!getAccessibleClient(req, clientId)) return res.status(404).json({ error: "Dossier introuvable" });
   const reconciliation = reconciliations.get(clientId);
   if (!reconciliation) return res.status(404).json({ error: "Rapprochement introuvable" });
   return res.json(reconciliation);
@@ -290,6 +333,7 @@ router.get("/clients/:clientId/reconciliation", (req, res) => {
 router.post("/clients/:clientId/reconciliation/run", (req, res) => {
   const { clientId } = RunReconciliationParams.parse(req.params);
   const input = RunReconciliationBody.parse(req.body);
+  if (!getAccessibleClient(req, clientId)) return res.status(404).json({ error: "Dossier introuvable" });
   const current = reconciliations.get(clientId);
   if (!current) return res.status(404).json({ error: "Rapprochement introuvable" });
   const result = runEngine(current, input.toleranceDays, input.similarityThreshold);
@@ -302,6 +346,7 @@ router.post("/clients/:clientId/reconciliation/run", (req, res) => {
 router.post("/clients/:clientId/reconciliation/manual", (req, res) => {
   const { clientId } = CreateManualMatchParams.parse(req.params);
   const input = CreateManualMatchBody.parse(req.body);
+  if (!getAccessibleClient(req, clientId)) return res.status(404).json({ error: "Dossier introuvable" });
   const reconciliation = reconciliations.get(clientId);
   if (!reconciliation) return res.status(404).json({ error: "Rapprochement introuvable" });
   const bank = reconciliation.bankTransactions.find((transaction) => transaction.id === input.bankTransactionId);
@@ -316,23 +361,49 @@ router.post("/clients/:clientId/reconciliation/manual", (req, res) => {
   return res.json(reconciliation);
 });
 
+router.delete("/clients/:clientId/reconciliation/matches/:matchId", (req, res) => {
+  const { clientId } = GetReconciliationParams.parse(req.params);
+  const matchId = String(req.params.matchId);
+  if (!getAccessibleClient(req, clientId)) return res.status(404).json({ error: "Dossier introuvable" });
+  const reconciliation = reconciliations.get(clientId);
+  if (!reconciliation) return res.status(404).json({ error: "Rapprochement introuvable" });
+  const matchIndex = reconciliation.matches.findIndex((match) => match.id === matchId);
+  if (matchIndex === -1) return res.status(404).json({ error: "Association introuvable" });
+  const [match] = reconciliation.matches.splice(matchIndex, 1);
+  const bank = reconciliation.bankTransactions.find((transaction) => transaction.id === match.bankTransactionId);
+  const entry = reconciliation.accountingEntries.find((transaction) => transaction.id === match.accountingEntryId);
+  if (bank) { bank.status = "unmatched"; bank.matchId = null; bank.matchType = "exact"; }
+  if (entry) { entry.status = "unmatched"; entry.matchId = null; entry.matchType = "exact"; }
+  const client = clients.find((item) => item.id === clientId);
+  if (client) Object.assign(client, clientView(client, reconciliation));
+  return res.json(reconciliation);
+});
+
 router.get("/clients/:clientId/history", (req, res) => {
   const { clientId } = ListReconciliationHistoryParams.parse(req.params);
-  res.json(history[clientId] ?? []);
+  if (!getAccessibleClient(req, clientId)) return res.status(404).json({ error: "Dossier introuvable" });
+  return res.json(history[clientId] ?? []);
 });
 
 router.get("/team", (_req, res) => res.json(team));
-router.post("/team", (req, res) => {
+router.post("/team", requireRole("admin", "superadmin"), (req, res) => {
   const input = InviteTeamMemberBody.parse(req.body);
   const member = { id: `usr-${String(team.length + 1).padStart(3, "0")}`, ...input, initials: input.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(), status: "invitation" as const };
   team.push(member);
   res.status(201).json(member);
 });
 
-router.get("/subscription", (_req, res) => res.json([
-  { id: "decouverte", name: "Découverte", price: "Gratuit", description: "Pour découvrir Reconcil sur vos premiers dossiers.", features: ["1 dossier client", "Rapprochement automatique", "Export des résultats"], highlighted: false },
-  { id: "standard", name: "Standard", price: "30–50 MAD", description: "Pour les cabinets qui veulent gagner du temps chaque mois.", features: ["Dossiers illimités", "3 passes de matching", "Historique & validation", "Support prioritaire"], highlighted: true },
-  { id: "cabinet", name: "Cabinet", price: "Sur devis", description: "Un tarif dégressif adapté à votre portefeuille.", features: ["Volume de dossiers", "Gestion multi-collaborateurs", "Accompagnement au démarrage"], highlighted: false },
-]));
+router.get("/subscription", (_req, res) => {
+  const activeClientCount = clients.length;
+  const pricePerClient = cabinet.plan === "Standard" ? 40 : 0;
+  res.json({
+    current: { plan: cabinet.plan.toLowerCase(), activeClientCount, estimatedMonthlyAmountMad: activeClientCount * pricePerClient },
+    plans: [
+      { id: "decouverte", name: "Découverte", price: "Gratuit", description: "Pour découvrir Reconcil sur vos premiers dossiers.", features: ["1 dossier client", "Rapprochement automatique", "Export des résultats"], highlighted: false },
+      { id: "standard", name: "Standard", price: "30–50 MAD / dossier", description: "Pour les cabinets qui veulent gagner du temps chaque mois.", features: ["Dossiers illimités", "3 passes de matching", "Historique & validation", "Support prioritaire"], highlighted: true },
+      { id: "cabinet", name: "Cabinet", price: "Sur devis", description: "Un tarif dégressif adapté à votre portefeuille.", features: ["Volume de dossiers", "Gestion multi-collaborateurs", "Accompagnement au démarrage"], highlighted: false },
+    ],
+  });
+});
 
 export default router;
