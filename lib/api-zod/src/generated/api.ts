@@ -19,7 +19,7 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Sign in to the demo cabinet
+ * @summary Sign in to a cabinet
  */
 export const LoginBody = zod.object({
   "email": zod.string().email(),
@@ -27,6 +27,44 @@ export const LoginBody = zod.object({
 })
 
 export const LoginResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'collaborateur']),
+  "initials": zod.string(),
+  "status": zod.enum(['actif', 'invitation'])
+}),
+  "cabinet": zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "plan": zod.string(),
+  "clientCount": zod.number().int()
+})
+})
+
+
+/**
+ * @summary Create a new cabinet account
+ */
+export const registerCabinetBodyCabinetNameMin = 2;
+
+export const registerCabinetBodyNameMin = 2;
+
+export const registerCabinetBodyPasswordMin = 8;
+
+
+
+export const RegisterCabinetBody = zod.object({
+  "cabinetName": zod.string().min(registerCabinetBodyCabinetNameMin),
+  "name": zod.string().min(registerCabinetBodyNameMin),
+  "email": zod.string().email(),
+  "password": zod.string().min(registerCabinetBodyPasswordMin),
+  "acceptedTerms": zod.boolean()
+})
+
+export const RegisterCabinetResponse = zod.object({
   "user": zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -457,6 +495,33 @@ export const InviteTeamMemberResponse = zod.object({
   "initials": zod.string(),
   "status": zod.enum(['actif', 'invitation'])
 })
+
+
+/**
+ * @summary Resend a collaborator invitation
+ */
+export const ResendTeamInvitationParams = zod.object({
+  "memberId": zod.coerce.string()
+})
+
+export const ResendTeamInvitationResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'collaborateur']),
+  "initials": zod.string(),
+  "status": zod.enum(['actif', 'invitation'])
+})
+
+
+/**
+ * @summary Remove a cabinet member
+ */
+export const DeleteTeamMemberParams = zod.object({
+  "memberId": zod.coerce.string()
+})
+
+export const DeleteTeamMemberResponse = zod.void()
 
 
 /**

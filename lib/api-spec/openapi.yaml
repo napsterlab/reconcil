@@ -38,7 +38,7 @@ paths:
     post:
       operationId: login
       tags: [auth]
-      summary: Sign in to the demo cabinet
+      summary: Sign in to a cabinet
       requestBody:
         required: true
         content:
@@ -54,6 +54,26 @@ paths:
                 $ref: "#/components/schemas/Session"
         "401":
           description: Invalid credentials
+  /auth/register:
+    post:
+      operationId: registerCabinet
+      tags: [auth]
+      summary: Create a new cabinet account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Created cabinet session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "409":
+          description: Email already used
   /auth/logout:
     post:
       operationId: logout
@@ -305,6 +325,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeamMember"
+  /team/{memberId}/resend:
+    post:
+      operationId: resendTeamInvitation
+      tags: [team]
+      summary: Resend a collaborator invitation
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+  /team/{memberId}:
+    delete:
+      operationId: deleteTeamMember
+      tags: [team]
+      summary: Remove a cabinet member
+      parameters:
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Member removed
+        "400":
+          description: Cannot remove current user
+        "404":
+          description: Member not found
   /subscription:
     get:
       operationId: getSubscription
@@ -345,6 +401,24 @@ components:
         password:
           type: string
       required: [email, password]
+    RegisterInput:
+      type: object
+      properties:
+        cabinetName:
+          type: string
+          minLength: 2
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        acceptedTerms:
+          type: boolean
+      required: [cabinetName, name, email, password, acceptedTerms]
     Session:
       type: object
       properties:

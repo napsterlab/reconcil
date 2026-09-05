@@ -9,6 +9,7 @@ import {
   CreateManualMatchBody,
   ListReconciliationHistoryParams,
   LoginBody,
+  RegisterCabinetBody,
   InviteTeamMemberBody,
 } from "@workspace/api-zod";
 import { clearSessionCookie, requireRole, requireSession, setSessionCookie } from "../lib/auth";
@@ -89,6 +90,11 @@ const team: Array<{ id: string; name: string; email: string; role: "admin" | "co
   { id: "usr-002", name: "Youssef Amrani", email: "youssef@atlas-conseil.ma", role: "collaborateur" as const, initials: "YA", status: "actif" as const },
   { id: "usr-003", name: "Salma Bennani", email: "salma@atlas-conseil.ma", role: "collaborateur" as const, initials: "SB", status: "actif" as const },
 ];
+
+const registeredAccounts = new Map<string, {
+  user: { id: string; name: string; email: string; role: "admin"; initials: string; status: "actif" };
+  cabinet: { id: string; name: string; email: string; plan: string; clientCount: number };
+}>();
 
 const clients: Client[] = [
   { id: "client-001", companyName: "Riad & Compagnie SARL", ifIce: "001845672000034", sector: "Hôtellerie & restauration", bank: "Attijariwafa bank", lastPeriod: "Juillet 2026", automationRate: 81, matchedCount: 34, exceptionCount: 8, totalCount: 42, ownerInitials: "YA" },
@@ -253,17 +259,24 @@ function clientView(client: Client, reconciliation: Reconciliation): Client {
 }
 
 function sessionFor(email: string) {
+  const registered = registeredAccounts.get(email.toLowerCase());
+  if (registered) return { user: registered.user, cabinet: registered.cabinet };
   const user = team.find((member) => member.email === email) ?? team[0];
   return { user, cabinet: { ...cabinet, clientCount: clients.length } };
 }
 
-function canAccessClient(req: { reconcilSession?: { role: string; userId: string } }, client: Client) {
+function isDemoCabinet(req: { reconcilSession?: { cabinetId: string } }) {
+  return req.reconcilSession?.cabinetId === cabinet.id;
+}
+
+function canAccessClient(req: { reconcilSession?: { cabinetId: string; role: string; userId: string } }, client: Client) {
+  if (!isDemoCabinet(req)) return false;
   if (req.reconcilSession?.role !== "collaborateur") return true;
   const member = team.find((item) => item.id === req.reconcilSession?.userId);
   return member?.initials === client.ownerInitials;
 }
 
-function getAccessibleClient(req: { reconcilSession?: { role: string; userId: string } }, clientId: string) {
+function getAccessibleClient(req: { reconcilSession?: { cabinetId: string; role: string; userId: string } }, clientId: string) {
   const client = clients.find((item) => item.id === clientId);
   return client && canAccessClient(req, client) ? client : undefined;
 }
@@ -279,10 +292,31 @@ router.post("/auth/login", (req, res) => {
   setSessionCookie(res, {
     userId: session.user.id,
     email: session.user.email,
-    cabinetId: cabinet.id,
+    cabinetId: session.cabinet.id,
     role: session.user.role,
   });
   return res.json(session);
+});
+
+router.post("/auth/register", (req, res) => {
+  const input = RegisterCabinetBody.parse(req.body);
+  const email = input.email.toLowerCase();
+  if (team.some((member) => member.email === email) || registeredAccounts.has(email)) {
+    return res.status(409).json({ error: "Cette adresse email est déjà utilisée" });
+  }
+  const suffix = Date.now().toString(36);
+  const user = {
+    id: `usr-${suffix}`,
+    name: input.name,
+    email,
+    role: "admin" as const,
+    initials: input.name.split(" ").map((part: string) => part[0]).join("").slice(0, 2).toUpperCase(),
+    status: "actif" as const,
+  };
+  const newCabinet = { id: `cab-${suffix}`, name: input.cabinetName, email, plan: "Découverte", clientCount: 0 };
+  registeredAccounts.set(email, { user, cabinet: newCabinet });
+  setSessionCookie(res, { userId: user.id, email: user.email, cabinetId: newCabinet.id, role: user.role });
+  return res.status(201).json({ user, cabinet: newCabinet });
 });
 
 router.post("/auth/logout", (_req, res) => {
@@ -293,8 +327,10 @@ router.post("/auth/logout", (_req, res) => {
 router.get("/me", (req, res) => {
   const session = req.reconcilSession;
   if (session) {
-    const user = team.find((member) => member.id === session.userId) ?? team[0];
-    return res.json({ user, cabinet: { ...cabinet, clientCount: clients.length } });
+    const registered = [...registeredAccounts.values()].find((account) => account.user.id === session.userId);
+    const user = team.find((member) => member.id === session.userId) ?? registered?.user ?? team[0];
+    const currentCabinet = registered?.cabinet ?? cabinet;
+    return res.json({ user, cabinet: { ...currentCabinet, clientCount: currentCabinet.id === cabinet.id ? clients.length : 0 } });
   }
   const demo = sessionFor("nadia@atlas-conseil.ma");
   if (process.env.RECONCIL_REQUIRE_AUTH === "true") return res.status(401).json({ error: "Authentification requise" });
@@ -305,38 +341,41 @@ router.get("/me", (req, res) => {
 router.use(requireSession);
 
 router.get("/dashboard/summary", (_req, res) => {
-  const rates = clients.map((client) => client.automationRate);
+  const visibleClients = isDemoCabinet(_req) ? clients : [];
+  const rates = visibleClients.map((client) => client.automationRate);
   res.json({
-    totalClients: clients.length,
-    reconciledThisMonth: 3,
-    pendingExceptions: clients.reduce((sum, client) => sum + client.exceptionCount, 0),
-    averageAutomationRate: Math.round(rates.reduce((sum, value) => sum + value, 0) / rates.length),
-    recentActivity: [
+    totalClients: visibleClients.length,
+    reconciledThisMonth: visibleClients.length ? 3 : 0,
+    pendingExceptions: visibleClients.reduce((sum, client) => sum + client.exceptionCount, 0),
+    averageAutomationRate: rates.length ? Math.round(rates.reduce((sum, value) => sum + value, 0) / rates.length) : 0,
+    recentActivity: visibleClients.length ? [
       { id: "activity-1", type: "reconciliation", text: "Rapprochement validé", clientName: "Riad & Compagnie SARL", relativeTime: "Il y a 18 min", initials: "RC" },
       { id: "activity-2", type: "import", text: "Nouveau relevé importé", clientName: "Atlas Distribution", relativeTime: "Il y a 2 h", initials: "AD" },
       { id: "activity-3", type: "manual", text: "2 écarts traités manuellement", clientName: "Casablanca Digital", relativeTime: "Hier", initials: "CD" },
-    ],
+    ] : [],
   });
 });
 
-router.get("/notifications", (_req, res) => {
-  return res.json(notifications);
+router.get("/notifications", (req, res) => {
+  return res.json(isDemoCabinet(req) ? notifications : []);
 });
 
 router.post("/notifications/:notificationId/read", (req, res) => {
+  if (!isDemoCabinet(req)) return res.status(404).json({ error: "Notification introuvable" });
   const notification = notifications.find((item) => item.id === req.params.notificationId);
   if (!notification) return res.status(404).json({ error: "Notification introuvable" });
   notification.read = true;
   return res.json(notification);
 });
 
-router.post("/notifications/read-all", (_req, res) => {
+router.post("/notifications/read-all", (req, res) => {
+  if (!isDemoCabinet(req)) return res.json({ updatedCount: 0 });
   notifications.forEach((notification) => { notification.read = true; });
   return res.json({ updatedCount: notifications.length });
 });
 
 router.get("/clients", (req, res) => {
-  const visibleClients = req.reconcilSession?.role === "collaborateur"
+  const visibleClients = !isDemoCabinet(req) ? [] : req.reconcilSession?.role === "collaborateur"
     ? clients.filter((client) => client.ownerInitials === team.find((member) => member.id === req.reconcilSession?.userId)?.initials)
     : clients;
   return res.json(visibleClients.map((client) => clientView(client, reconciliations.get(client.id)!)));
@@ -419,7 +458,7 @@ router.get("/clients/:clientId/history", (req, res) => {
   return res.json(history[clientId] ?? []);
 });
 
-router.get("/team", (_req, res) => res.json(team));
+router.get("/team", (req, res) => res.json(isDemoCabinet(req) ? team : []));
 router.post("/team", requireRole("admin", "superadmin"), (req, res) => {
   const input = InviteTeamMemberBody.parse(req.body);
   const member = { id: `usr-${String(team.length + 1).padStart(3, "0")}`, ...input, initials: input.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase(), status: "invitation" as const };
@@ -427,8 +466,23 @@ router.post("/team", requireRole("admin", "superadmin"), (req, res) => {
   res.status(201).json(member);
 });
 
-router.get("/subscription", (_req, res) => {
-  const activeClientCount = clients.length;
+router.post("/team/:memberId/resend", requireRole("admin", "superadmin"), (req, res) => {
+  const member = team.find((item) => item.id === req.params.memberId);
+  if (!member) return res.status(404).json({ error: "Membre introuvable" });
+  member.status = "invitation";
+  return res.json(member);
+});
+
+router.delete("/team/:memberId", requireRole("admin", "superadmin"), (req, res) => {
+  if (req.reconcilSession?.userId === req.params.memberId) return res.status(400).json({ error: "Vous ne pouvez pas supprimer votre propre compte" });
+  const index = team.findIndex((member) => member.id === req.params.memberId);
+  if (index === -1) return res.status(404).json({ error: "Membre introuvable" });
+  team.splice(index, 1);
+  return res.status(204).send();
+});
+
+router.get("/subscription", (req, res) => {
+  const activeClientCount = isDemoCabinet(req) ? clients.length : 0;
   const pricePerClient = cabinet.plan === "Standard" ? 40 : 0;
   res.json({
     current: { plan: cabinet.plan.toLowerCase(), activeClientCount, estimatedMonthlyAmountMad: activeClientCount * pricePerClient },

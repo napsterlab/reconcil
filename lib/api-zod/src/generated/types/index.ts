@@ -27,6 +27,7 @@ export * from './pricingPlan';
 export * from './reconciliation';
 export * from './reconciliationRunStatus';
 export * from './reconciliationSettings';
+export * from './registerInput';
 export * from './session';
 export * from './subscription';
 export * from './subscriptionCurrent';

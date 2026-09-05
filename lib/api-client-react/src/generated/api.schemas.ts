@@ -23,6 +23,17 @@ export interface LoginInput {
   password: string;
 }
 
+export interface RegisterInput {
+  /** @minLength 2 */
+  cabinetName: string;
+  /** @minLength 2 */
+  name: string;
+  email: string;
+  /** @minLength 8 */
+  password: string;
+  acceptedTerms: boolean;
+}
+
 export type TeamMemberRole = typeof TeamMemberRole[keyof typeof TeamMemberRole];
 
 

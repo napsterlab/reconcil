@@ -31,6 +31,7 @@ import type {
   Notification,
   Reconciliation,
   ReconciliationSettings,
+  RegisterInput,
   Session,
   Subscription,
   TeamMember,
@@ -151,7 +152,7 @@ export const getLoginUrl = () => {
 }
 
 /**
- * @summary Sign in to the demo cabinet
+ * @summary Sign in to a cabinet
  */
 export const login = async (loginInput: LoginInput, options?: Parameters<typeof customFetch>[1]): Promise<Session> => {
 
@@ -200,7 +201,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type LoginMutationError = ErrorType<void>
 
     /**
- * @summary Sign in to the demo cabinet
+ * @summary Sign in to a cabinet
  */
 export const useLogin = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,{data: BodyType<LoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -211,6 +212,77 @@ export const useLogin = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getLoginMutationOptions(options));
+    }
+
+export const getRegisterCabinetUrl = () => {
+
+
+
+
+  return `/api/auth/register`
+}
+
+/**
+ * @summary Create a new cabinet account
+ */
+export const registerCabinet = async (registerInput: RegisterInput, options?: Parameters<typeof customFetch>[1]): Promise<Session> => {
+
+  return customFetch<Session>(getRegisterCabinetUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(registerInput)
+  }
+);}
+
+
+
+
+
+export const getRegisterCabinetMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCabinet>>, TError,{data: BodyType<RegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerCabinet>>, TError,{data: BodyType<RegisterInput>}, TContext> => {
+
+const mutationKey = ['registerCabinet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerCabinet>>, {data: BodyType<RegisterInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerCabinet(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterCabinetMutationResult = NonNullable<Awaited<ReturnType<typeof registerCabinet>>>
+    export type RegisterCabinetMutationBody = BodyType<RegisterInput>
+    export type RegisterCabinetMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a new cabinet account
+ */
+export const useRegisterCabinet = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerCabinet>>, TError,{data: BodyType<RegisterInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerCabinet>>,
+        TError,
+        {data: BodyType<RegisterInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterCabinetMutationOptions(options));
     }
 
 export const getLogoutUrl = () => {
@@ -1399,6 +1471,148 @@ export const useInviteTeamMember = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getInviteTeamMemberMutationOptions(options));
+    }
+
+export const getResendTeamInvitationUrl = (memberId: string,) => {
+
+
+
+
+  return `/api/team/${memberId}/resend`
+}
+
+/**
+ * @summary Resend a collaborator invitation
+ */
+export const resendTeamInvitation = async (memberId: string, options?: Parameters<typeof customFetch>[1]): Promise<TeamMember> => {
+
+  return customFetch<TeamMember>(getResendTeamInvitationUrl(memberId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendTeamInvitationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendTeamInvitation>>, TError,{memberId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resendTeamInvitation>>, TError,{memberId: string}, TContext> => {
+
+const mutationKey = ['resendTeamInvitation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resendTeamInvitation>>, {memberId: string}> = (props) => {
+          const {memberId} = props ?? {};
+
+          return  resendTeamInvitation(memberId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendTeamInvitationMutationResult = NonNullable<Awaited<ReturnType<typeof resendTeamInvitation>>>
+
+    export type ResendTeamInvitationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Resend a collaborator invitation
+ */
+export const useResendTeamInvitation = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendTeamInvitation>>, TError,{memberId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resendTeamInvitation>>,
+        TError,
+        {memberId: string},
+        TContext
+      > => {
+      return useMutation(getResendTeamInvitationMutationOptions(options));
+    }
+
+export const getDeleteTeamMemberUrl = (memberId: string,) => {
+
+
+
+
+  return `/api/team/${memberId}`
+}
+
+/**
+ * @summary Remove a cabinet member
+ */
+export const deleteTeamMember = async (memberId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteTeamMemberUrl(memberId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTeamMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTeamMember>>, TError,{memberId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTeamMember>>, TError,{memberId: string}, TContext> => {
+
+const mutationKey = ['deleteTeamMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTeamMember>>, {memberId: string}> = (props) => {
+          const {memberId} = props ?? {};
+
+          return  deleteTeamMember(memberId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTeamMemberMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTeamMember>>>
+
+    export type DeleteTeamMemberMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a cabinet member
+ */
+export const useDeleteTeamMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTeamMember>>, TError,{memberId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTeamMember>>,
+        TError,
+        {memberId: string},
+        TContext
+      > => {
+      return useMutation(getDeleteTeamMemberMutationOptions(options));
     }
 
 export const getGetSubscriptionUrl = () => {
