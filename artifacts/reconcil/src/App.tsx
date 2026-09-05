@@ -3,22 +3,25 @@ import type { FormEvent, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import {
-  ArrowLeft, ArrowUpRight, BarChart3, Bell, Building2, Check, Download,
+  ArrowLeft, ArrowUpRight, BarChart3, Bell, Building2, Check, CheckCheck, Download,
   CheckCircle2, ChevronDown, CircleAlert, FileCheck2,
   FileSpreadsheet, Filter, History, LayoutDashboard, Loader2, LogOut, Menu,
   MoreHorizontal, PackageOpen, Plus, ReceiptText, Search, Settings2, ShieldCheck,
-  Sparkles, Target, Upload, UserPlus, Users, X,
+  Sparkles, Target, Upload, UserPlus, Users, X, RefreshCw,
 } from 'lucide-react';
 import {
   getGetClientQueryKey, getGetDashboardSummaryQueryKey, getGetMeQueryKey,
   getGetReconciliationQueryKey, getGetSubscriptionQueryKey, getListClientsQueryKey,
-  getListReconciliationHistoryQueryKey, getListTeamQueryKey, useCreateClient,
+  getListNotificationsQueryKey, getListReconciliationHistoryQueryKey, getListTeamQueryKey,
+  useCreateClient,
   useCreateManualMatch, useDeleteMatch, useGetClient, useGetDashboardSummary, useGetMe,
   useGetReconciliation, useGetSubscription, useInviteTeamMember, useListClients,
-  useListReconciliationHistory, useListTeam, useLogin, useLogout, useRunReconciliation,
+  useListNotifications, useListReconciliationHistory, useListTeam, useLogin, useLogout,
+  useMarkAllNotificationsRead, useMarkNotificationRead, useRunReconciliation,
 } from '@workspace/api-client-react';
 import type {
-  Client, DashboardSummary, HistoryItem, PricingPlan, Reconciliation, Subscription, TeamMember,
+  Client, DashboardSummary, HistoryItem, Notification as ReconcilNotification, PricingPlan,
+  Reconciliation, Subscription, TeamMember,
 } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
@@ -39,6 +42,75 @@ function Logo({ small = false }: { small?: boolean }) {
       <span className="absolute bottom-[5px] right-[5px] h-1.5 w-1.5 rounded-full bg-accent" />
     </div>
     <span className={cn('font-serif text-[21px] font-bold tracking-[-.04em] text-sidebar-foreground', small && 'text-lg')}>reconcil</span>
+  </div>;
+}
+
+function NotificationMenu({ enabled }: { enabled: boolean }) {
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const notifications = useListNotifications({
+    query: {
+      queryKey: getListNotificationsQueryKey(),
+      enabled,
+      refetchInterval: 60_000,
+    },
+  });
+  const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
+  const items = (notifications.data || []) as ReconcilNotification[];
+  const unreadCount = items.filter((item) => !item.read).length;
+
+  const refresh = () => {
+    void notifications.refetch();
+  };
+
+  const openNotification = (item: ReconcilNotification) => {
+    if (!item.read) {
+      markRead.mutate({ notificationId: item.id }, {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+        },
+      });
+    }
+    if (item.href) {
+      setOpen(false);
+      setLocation(item.href);
+    }
+  };
+
+  const markEverythingRead = () => {
+    markAllRead.mutate(undefined, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: getListNotificationsQueryKey() });
+      },
+    });
+  };
+
+  return <div className="relative">
+    <button
+      onClick={() => setOpen((value) => !value)}
+      aria-label={unreadCount ? `${unreadCount} notifications non lues` : 'Notifications'}
+      aria-expanded={open}
+      data-testid="button-notifications"
+      className={cn('relative rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground', open && 'bg-muted text-foreground')}
+    >
+      <Bell className="h-[17px] w-[17px]" />
+      {unreadCount > 0 && <span data-testid="badge-unread-notifications" className="absolute right-1 top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[8px] font-bold text-accent-foreground">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+    </button>
+    {open && <div data-testid="notifications-panel" className="absolute right-0 top-11 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div><p className="text-sm font-bold">Notifications</p><p className="mt-0.5 text-[10px] text-muted-foreground">{unreadCount ? `${unreadCount} non lue${unreadCount > 1 ? 's' : ''}` : 'Tout est à jour'}</p></div>
+        <div className="flex items-center gap-1">
+          <button onClick={refresh} disabled={notifications.isFetching} aria-label="Actualiser les notifications" data-testid="button-refresh-notifications" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"><RefreshCw className={cn('h-3.5 w-3.5', notifications.isFetching && 'animate-spin')} /></button>
+          <button onClick={markEverythingRead} disabled={!unreadCount || markAllRead.isPending} data-testid="button-mark-all-notifications-read" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-40"><CheckCheck className="h-4 w-4" /></button>
+          <button onClick={() => setOpen(false)} aria-label="Fermer les notifications" data-testid="button-close-notifications" className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+      </div>
+      <div className="max-h-[360px] overflow-y-auto">
+        {notifications.isLoading ? <div className="space-y-3 p-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : notifications.isError ? <div className="p-6 text-center"><CircleAlert className="mx-auto mb-2 h-5 w-5 text-accent" /><p className="text-xs font-semibold">Impossible de charger les notifications.</p><button onClick={refresh} className="mt-3 text-xs font-bold text-accent hover:underline">Réessayer</button></div> : items.length ? items.map((item) => <button key={item.id} onClick={() => openNotification(item)} data-testid={`notification-${item.id}`} className={cn('flex w-full gap-3 border-b border-border px-4 py-3 text-left transition-colors last:border-0 hover:bg-muted/60', !item.read && 'bg-secondary/10')}><span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', item.read ? 'bg-border' : 'bg-accent')} /><span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-3"><strong className="text-xs">{item.title}</strong><time className="shrink-0 text-[10px] text-muted-foreground">{item.relativeTime}</time></span><span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">{item.message}</span></span></button>) : <div className="p-8 text-center"><Bell className="mx-auto mb-2 h-5 w-5 text-muted-foreground" /><p className="text-xs text-muted-foreground">Aucune notification.</p></div>}
+      </div>
+    </div>}
   </div>;
 }
 
@@ -96,7 +168,7 @@ function Shell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-border/70 bg-background/90 px-5 backdrop-blur-md md:px-9">
         <button onClick={() => setMobileOpen(true)} data-testid="button-open-menu" className="rounded-lg p-2 hover:bg-muted md:hidden"><Menu className="h-5 w-5" /></button>
         <div className="hidden items-center gap-2 text-xs text-muted-foreground md:flex"><span className="h-1.5 w-1.5 rounded-full bg-secondary" /> Cabinet {session?.cabinet?.name || 'Atlas Conseil'}</div>
-        <div className="ml-auto flex items-center gap-3"><button data-testid="button-notifications" className="relative rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"><Bell className="h-[17px] w-[17px]" /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" /></button><div className="h-5 w-px bg-border" /><span className="text-xs text-muted-foreground">{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date())}</span></div>
+        <div className="ml-auto flex items-center gap-3"><NotificationMenu enabled={Boolean(session)} /><div className="h-5 w-px bg-border" /><span className="text-xs text-muted-foreground">{new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date())}</span></div>
       </header>
        <div className="mx-auto max-w-[1440px] px-5 py-7 md:px-9 md:py-9">{sessionQuery.isLoading ? <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div> : sessionQuery.isError ? <div className="rounded-2xl border border-destructive/25 bg-destructive/5 p-8 text-center"><p className="font-semibold">Votre session a expiré.</p><button onClick={() => setLocation('/login')} className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Retour à la connexion</button></div> : children}</div>
     </main>

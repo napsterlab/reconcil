@@ -123,6 +123,27 @@ export interface DashboardSummary {
   recentActivity: Activity[];
 }
 
+export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
+
+
+export const NotificationType = {
+  reconciliation: 'reconciliation',
+  import: 'import',
+  manual: 'manual',
+  system: 'system',
+} as const;
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  relativeTime: string;
+  createdAt: string;
+  read: boolean;
+  href?: string;
+}
+
 export type TransactionSource = typeof TransactionSource[keyof typeof TransactionSource];
 
 
@@ -255,4 +276,8 @@ export interface Subscription {
   current: SubscriptionCurrent;
   plans: PricingPlan[];
 }
+
+export type MarkAllNotificationsRead200 = {
+  updatedCount: number;
+};
 

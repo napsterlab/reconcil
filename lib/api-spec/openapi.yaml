@@ -86,6 +86,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardSummary"
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [dashboard]
+      summary: List cabinet notifications
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+  /notifications/{notificationId}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [dashboard]
+      summary: Mark one notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          description: Notification not found
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [dashboard]
+      summary: Mark every notification as read
+      responses:
+        "200":
+          description: Number of updated notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updatedCount:
+                    type: integer
+                required: [updatedCount]
   /clients:
     get:
       operationId: listClients
@@ -421,6 +471,28 @@ components:
         initials:
           type: string
       required: [id, type, text, clientName, relativeTime, initials]
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [reconciliation, import, manual, system]
+        title:
+          type: string
+        message:
+          type: string
+        relativeTime:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+        href:
+          type: string
+      required: [id, type, title, message, relativeTime, createdAt, read]
     Transaction:
       type: object
       properties:

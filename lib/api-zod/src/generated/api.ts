@@ -93,6 +93,49 @@ export const GetDashboardSummaryResponse = zod.object({
 
 
 /**
+ * @summary List cabinet notifications
+ */
+export const ListNotificationsResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.enum(['reconciliation', 'import', 'manual', 'system']),
+  "title": zod.string(),
+  "message": zod.string(),
+  "relativeTime": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "read": zod.boolean(),
+  "href": zod.string().optional()
+})
+export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
+ * @summary Mark one notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  "notificationId": zod.coerce.string()
+})
+
+export const MarkNotificationReadResponse = zod.object({
+  "id": zod.string(),
+  "type": zod.enum(['reconciliation', 'import', 'manual', 'system']),
+  "title": zod.string(),
+  "message": zod.string(),
+  "relativeTime": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "read": zod.boolean(),
+  "href": zod.string().optional()
+})
+
+
+/**
+ * @summary Mark every notification as read
+ */
+export const MarkAllNotificationsReadResponse = zod.object({
+  "updatedCount": zod.number().int()
+})
+
+
+/**
  * @summary List client files for the cabinet
  */
 export const ListClientsResponseItem = zod.object({

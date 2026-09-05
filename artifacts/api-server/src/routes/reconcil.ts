@@ -65,6 +65,17 @@ type Client = {
   ownerInitials: string;
 };
 
+type Notification = {
+  id: string;
+  type: "reconciliation" | "import" | "manual" | "system";
+  title: string;
+  message: string;
+  relativeTime: string;
+  createdAt: string;
+  read: boolean;
+  href?: string;
+};
+
 const cabinet = {
   id: "cab-001",
   name: "Cabinet Atlas Conseil",
@@ -96,6 +107,13 @@ const history: Record<string, Array<{ id: string; period: string; completedAt: s
     { id: "hist-004", period: "Juillet 2026", completedAt: "2026-08-04T14:08:00.000Z", automationRate: 94, matchedCount: 47, exceptionCount: 3, status: "valide" },
   ],
 };
+
+const notifications: Notification[] = [
+  { id: "notification-001", type: "reconciliation", title: "Rapprochement à valider", message: "Riad & Compagnie SARL compte encore 8 exceptions.", relativeTime: "Il y a 18 min", createdAt: "2026-09-05T12:42:00.000Z", read: false, href: "/clients/client-001" },
+  { id: "notification-002", type: "import", title: "Nouveau fichier importé", message: "Le relevé d’Atlas Distribution est prêt à être contrôlé.", relativeTime: "Il y a 2 h", createdAt: "2026-09-05T10:00:00.000Z", read: false, href: "/clients/client-002" },
+  { id: "notification-003", type: "manual", title: "Association manuelle enregistrée", message: "2 écarts ont été traités sur Casablanca Digital.", relativeTime: "Hier", createdAt: "2026-09-04T15:10:00.000Z", read: true, href: "/clients/client-003" },
+  { id: "notification-004", type: "system", title: "Votre espace est prêt", message: "Les règles de rapprochement sont configurées pour votre cabinet.", relativeTime: "Cette semaine", createdAt: "2026-09-01T09:00:00.000Z", read: true },
+];
 
 function daysFrom(date: string, offset: number) {
   const result = new Date(`${date}T12:00:00.000Z`);
@@ -299,6 +317,22 @@ router.get("/dashboard/summary", (_req, res) => {
       { id: "activity-3", type: "manual", text: "2 écarts traités manuellement", clientName: "Casablanca Digital", relativeTime: "Hier", initials: "CD" },
     ],
   });
+});
+
+router.get("/notifications", (_req, res) => {
+  return res.json(notifications);
+});
+
+router.post("/notifications/:notificationId/read", (req, res) => {
+  const notification = notifications.find((item) => item.id === req.params.notificationId);
+  if (!notification) return res.status(404).json({ error: "Notification introuvable" });
+  notification.read = true;
+  return res.json(notification);
+});
+
+router.post("/notifications/read-all", (_req, res) => {
+  notifications.forEach((notification) => { notification.read = true; });
+  return res.json({ updatedCount: notifications.length });
 });
 
 router.get("/clients", (req, res) => {
